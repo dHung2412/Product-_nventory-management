@@ -1,3 +1,4 @@
+// Program.cs - Updated seeding section
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -9,17 +10,16 @@ using Application.Interfaces;
 using Application.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc;
+using Domain.Entities;
+using Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure URLs to avoid port conflicts (change ports here as needed)
+// Configure URLs to avoid port conflicts
 builder.WebHost.UseUrls("http://localhost:5080", "https://localhost:5443");
 
 // Add services to the container.
 builder.Services.AddControllers();
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
 // Configure Swagger/OpenAPI
@@ -37,7 +37,6 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // Add JWT Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -62,7 +61,6 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // Include XML comments
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
@@ -101,9 +99,9 @@ builder.Services.AddCors(options =>
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
-var issuer = jwtSettings["Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured");
-var audience = jwtSettings["Audience"] ?? throw new InvalidOperationException("JWT Audience not configured");
+var secretKey = jwtSettings["SecretKey"] ?? "your-super-secret-key-that-is-at-least-32-characters-long";
+var issuer = jwtSettings["Issuer"] ?? "WarehouseManagement";
+var audience = jwtSettings["Audience"] ?? "WarehouseManagementClient";
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -152,6 +150,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 
+// Register the custom password hasher
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher>();
+
 // Configure Health Checks
 var healthChecksConfig = builder.Configuration.GetSection("HealthChecks");
 if (healthChecksConfig.GetValue<bool>("Enabled"))
@@ -186,7 +187,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Warehouse Management API v1");
-        c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+        c.RoutePrefix = string.Empty;
         c.DisplayRequestDuration();
         c.EnableDeepLinking();
         c.EnableFilter();
@@ -195,20 +196,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Enable response compression
 app.UseResponseCompression();
-
-// Enable CORS
 app.UseCors("AllowSpecificOrigins");
-
-// Enable HTTPS redirection
 app.UseHttpsRedirection();
-
-// Enable Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Map controllers
 app.MapControllers();
 
 // Map health checks
@@ -249,23 +241,24 @@ if (healthChecksConfig.GetValue<bool>("Enabled"))
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     
     try
     {
-        // Ensure database is created
-        await context.Database.EnsureCreatedAsync();
-        logger.LogInformation("Database created successfully");
-        
-        // Run migrations if any
+        // Xóa EnsureCreatedAsync() - chỉ sử dụng MigrateAsync()
         if (context.Database.GetPendingMigrations().Any())
         {
             await context.Database.MigrateAsync();
             logger.LogInformation("Database migrations applied successfully");
         }
+        else
+        {
+            await context.Database.MigrateAsync();  // Vẫn gọi để đảm bảo cơ sở dữ liệu tồn tại và schema đúng
+            logger.LogInformation("No pending migrations, but database ensured via Migrate");
+        }
         
-        // Seed initial data
-        await SeedInitialDataAsync(context, logger);
+        await SeedInitialDataAsync(context, passwordHasher, logger);
     }
     catch (Exception ex)
     {
@@ -277,7 +270,6 @@ using (var scope = app.Services.CreateScope())
 // Global exception handling
 app.UseExceptionHandler("/error");
 
-// Add a custom error endpoint
 app.Map("/error", (HttpContext context) =>
 {
     var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
@@ -285,18 +277,15 @@ app.Map("/error", (HttpContext context) =>
     logger.LogError(exception, "Unhandled exception occurred");
     
     return Results.Problem(
-        title: "An error occurred",
-        detail: app.Environment.IsDevelopment() ? exception?.Message : "An error occurred",
-        statusCode: 500
-    );
+    detail: app.Environment.IsDevelopment() ? exception?.Message : "An error occurred",
+    statusCode: 500
+);
 });
 
-// Add a welcome endpoint
 app.MapGet("/", () => Results.Redirect("/swagger"))
     .WithName("Welcome")
     .WithTags("General");
 
-// Add API info endpoint
 app.MapGet("/api/info", () => new
 {
     Name = "Warehouse Management API",
@@ -315,28 +304,36 @@ app.Logger.LogInformation("🏥 Health checks available at: /health");
 
 app.Run();
 
-// Helper method for seeding initial data
-static async Task SeedInitialDataAsync(AppDbContext context, ILogger logger)
+// FIXED: Helper method for seeding initial data with correct password hashing
+static async Task SeedInitialDataAsync(AppDbContext context, IPasswordHasher<User> passwordHasher, ILogger logger)
 {
     try
     {
-        // Check if data already exists
         if (await context.Users.AnyAsync())
         {
             logger.LogInformation("Database already contains data, skipping seed");
             return;
         }
 
-        // Create default admin user
-        var adminUser = new Domain.Entities.User(
-            "admin", 
-            "admin@warehouse.com", 
-            BCrypt.Net.BCrypt.HashPassword("admin123"), 
-            Domain.Entities.Role.Admin, 
-            true
-        );
-
+        // Create default admin user with correct password hashing
+        var adminUser = new User("admin", "admin@warehouse.com", "", Role.Admin, true);
+        var hashedPassword = passwordHasher.HashPassword(adminUser, "admin123");
+        
+        // Update the user with the hashed password
+        adminUser.Update("admin", "admin@warehouse.com", hashedPassword, Role.Admin, true);
+        
         context.Users.Add(adminUser);
+
+        // Create additional test users
+        var managerUser = new User("manager", "manager@warehouse.com", "", Role.Manager, true);
+        var managerHashedPassword = passwordHasher.HashPassword(managerUser, "manager123");
+        managerUser.Update("manager", "manager@warehouse.com", managerHashedPassword, Role.Manager, true);
+        
+        var employeeUser = new User("employee", "employee@warehouse.com", "", Role.Employee, true);
+        var employeeHashedPassword = passwordHasher.HashPassword(employeeUser, "employee123");
+        employeeUser.Update("employee", "employee@warehouse.com", employeeHashedPassword, Role.Employee, true);
+        
+        context.Users.AddRange(managerUser, employeeUser);
 
         // Create sample products
         var products = new[]
@@ -363,7 +360,10 @@ static async Task SeedInitialDataAsync(AppDbContext context, ILogger logger)
         await context.SaveChangesAsync();
 
         logger.LogInformation("✅ Initial data seeded successfully");
-        logger.LogInformation("👤 Default admin user created: admin / admin123");
+        logger.LogInformation("👤 Default users created:");
+        logger.LogInformation("   🔑 Admin: admin / admin123");
+        logger.LogInformation("   👨‍💼 Manager: manager / manager123");
+        logger.LogInformation("   👨‍💻 Employee: employee / employee123");
         logger.LogInformation("📦 {ProductCount} sample products created", products.Length);
         logger.LogInformation("🏢 {WarehouseCount} sample warehouses created", warehouses.Length);
     }

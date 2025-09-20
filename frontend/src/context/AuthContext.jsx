@@ -56,10 +56,10 @@ export const AuthProvider = ({ children }) => {
   const login = async (loginData) => {
     try {
       const response = await authApi.login(loginData);
-      const { token, refreshToken, user } = response;
+      const { accessToken, refreshToken, user } = response;
       
       // Lưu thông tin auth
-      setToken(token);
+      setToken(accessToken);
       setRefreshToken(refreshToken);
       setUser(user);
       
@@ -77,10 +77,10 @@ export const AuthProvider = ({ children }) => {
   const register = async (registerData) => {
     try {
       const response = await authApi.register(registerData);
-      const { token, refreshToken, user } = response;
+      const { accessToken, refreshToken, user } = response;
       
       // Lưu thông tin auth
-      setToken(token);
+      setToken(accessToken);
       setRefreshToken(refreshToken);
       setUser(user);
       
@@ -119,14 +119,14 @@ export const AuthProvider = ({ children }) => {
       }
       
       const response = await authApi.refreshToken(refreshToken);
-      const { token, refreshToken: newRefreshToken } = response;
+      const { accessToken, refreshToken: newRefreshToken } = response;
       
-      setToken(token);
+      setToken(accessToken);
       if (newRefreshToken) {
         setRefreshToken(newRefreshToken);
       }
       
-      return token;
+      return accessToken;
     } catch (error) {
       console.error('Token refresh failed:', error);
       await logout();

@@ -35,31 +35,8 @@ namespace Infrastructure.Data
                 .Property(e => e.Role)
                 .HasConversion<string>();
 
-            // Add some seed data
-            SeedData(modelBuilder);
         }
 
-        private static void SeedData(ModelBuilder modelBuilder)
-        {
-            // Seed default admin user
-            modelBuilder.Entity<User>().HasData(
-                new User("admin", "admin@warehouse.com",
-                    "$2a$11$rQw8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8",
-                    Role.Admin, true)
-            );
-
-            // Seed sample categories
-            modelBuilder.Entity<Product>().HasData(
-                new Product("Laptop", "High-performance laptop", "pcs", 999.99m, "Electronics"),
-                new Product("T-Shirt", "Cotton t-shirt", "pcs", 19.99m, "Clothing")
-            );
-
-            // Seed sample warehouses
-            modelBuilder.Entity<Warehouse>().HasData(
-                new Warehouse("Main Warehouse", "123 Main St, City, State"),
-                new Warehouse("Secondary Warehouse", "456 Second St, City, State")
-            );
-        }
 
         public override int SaveChanges()
         {
