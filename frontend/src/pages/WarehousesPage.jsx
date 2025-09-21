@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import warehouseApi from '../api/warehouseApi';
+import { useNavigate } from 'react-router-dom';
+
 
 const WarehousesPage = () => {
   const { user } = useAuth();
@@ -19,6 +21,7 @@ const WarehousesPage = () => {
     try {
       setIsLoading(true);
       const data = await warehouseApi.getAll();
+      console.log("WAREHOUSE API DATA:", data);
       setWarehouses(data);
     } catch (error) {
       console.error('Error loading warehouses:', error);
@@ -45,7 +48,7 @@ const WarehousesPage = () => {
     }
   };
 
-  const canManageWarehouses = user?.role === 'Admin' || user?.role === 'Manager';
+  const canManageWarehouses = user?.roleName  === 'Admin' || user?.roleName  === 'Manager';
 
   if (isLoading && warehouses.length === 0) {
     return <LoadingSpinner size="large" text="Đang tải danh sách kho..." />;
@@ -130,6 +133,7 @@ const WarehousesPage = () => {
 
 // Warehouse Card Component
 const WarehouseCard = ({ warehouse, canManage, onEdit, onDelete }) => {
+  const navigate = useNavigate();
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between mb-4">
@@ -188,17 +192,17 @@ const WarehouseCard = ({ warehouse, canManage, onEdit, onDelete }) => {
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="flex items-center justify-between">
           <span className={`px-2 py-1 text-xs rounded-full ${
-            warehouse.isActive 
+            warehouse.totalStock > 0
               ? 'bg-green-100 text-green-800' 
               : 'bg-red-100 text-red-800'
           }`}>
-            {warehouse.isActive ? 'Hoạt động' : 'Ngừng hoạt động'}
+            {warehouse.totalStock > 0 ? 'Hoạt động' : 'Ngừng hoạt động'}
           </span>
           <button
             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
             onClick={() => {
               // Navigate to warehouse stock view
-              window.location.href = `/warehouses/${warehouse.id}/stock`;
+              navigate(`/warehouses/${warehouse.id}/stock`);
             }}
           >
             Xem tồn kho →
@@ -370,7 +374,7 @@ const EditWarehouseModal = ({ warehouse, onClose, onSuccess }) => {
     address: warehouse.address || '',
     phoneNumber: warehouse.phoneNumber || '',
     email: warehouse.email || '',
-    isActive: warehouse.isActive
+    // isActive: warehouse.isActive
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -491,7 +495,7 @@ const EditWarehouseModal = ({ warehouse, onClose, onSuccess }) => {
               />
             </div>
 
-            <div>
+            {/* <div>
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -502,7 +506,7 @@ const EditWarehouseModal = ({ warehouse, onClose, onSuccess }) => {
                 />
                 <span className="ml-2 text-sm text-gray-700">Kích hoạt</span>
               </label>
-            </div>
+            </div> */}
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">

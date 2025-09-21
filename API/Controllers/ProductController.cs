@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
@@ -149,6 +150,7 @@ namespace API.Controllers
         [Authorize(Roles = "Admin,Manager")]
         [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Create([FromBody] CreateProductDto createProductDto)
         {
             try
@@ -163,10 +165,31 @@ namespace API.Controllers
                 
                 return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
             }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Duplicate product creation attempt: {ProductName} - {Message}", 
+                    createProductDto?.Name, ex.Message);
+                return Conflict(new { message = ex.Message });
+            }
+            catch (DbUpdateException ex) when (ex.InnerException?.Message?.Contains("duplicate key") == true)
+            {
+                var errorMessage = "Sản phẩm với tên này đã tồn tại";
+                
+                if (ex.InnerException.Message.Contains("IX_Products_Name"))
+                    errorMessage = "Tên sản phẩm đã tồn tại";
+                
+                _logger.LogWarning("Duplicate product creation attempt: {ProductName}", createProductDto?.Name);
+                return Conflict(new { message = errorMessage });
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid product data: {Message}", ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating product {ProductName}", createProductDto?.Name);
-                return StatusCode(500, new { message = "Error creating product" });
+                return StatusCode(500, new { message = "Có lỗi xảy ra khi tạo sản phẩm" });
             }
         }
 
@@ -181,6 +204,7 @@ namespace API.Controllers
         [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductDto updateProductDto)
         {
             try
@@ -194,14 +218,35 @@ namespace API.Controllers
                 
                 return Ok(product);
             }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Duplicate product update attempt: ID {ProductId} - {Message}", 
+                    id, ex.Message);
+                return Conflict(new { message = ex.Message });
+            }
+            catch (DbUpdateException ex) when (ex.InnerException?.Message?.Contains("duplicate key") == true)
+            {
+                var errorMessage = "Sản phẩm với tên hoặc SKU này đã tồn tại";
+                
+                if (ex.InnerException.Message.Contains("IX_Products_Name"))
+                    errorMessage = "Tên sản phẩm đã tồn tại";
+                else if (ex.InnerException.Message.Contains("IX_Products_SKU"))
+                    errorMessage = "SKU sản phẩm đã tồn tại";
+                
+                return Conflict(new { message = errorMessage });
+            }
             catch (ArgumentException ex) when (ex.Message.Contains("not found"))
             {
                 return NotFound(new { message = ex.Message });
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating product with ID {ProductId}", id);
-                return StatusCode(500, new { message = "Error updating product" });
+                return StatusCode(500, new { message = "Có lỗi xảy ra khi cập nhật sản phẩm" });
             }
         }
 

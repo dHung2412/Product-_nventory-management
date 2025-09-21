@@ -26,6 +26,12 @@ namespace Application.DTOs
         [Required]
         [StringLength(100)]
         public string Category { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int? MinQuantity { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int? MaxQuantity { get; set; }
     }
 
     public class CreateProductDto
@@ -48,6 +54,12 @@ namespace Application.DTOs
         [Required]
         [StringLength(100)]
         public string Category { get; set; }
+        
+        [Range(0, int.MaxValue)]
+        public int? MinQuantity { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int? MaxQuantity { get; set; }
     }
 
     public class UpdateProductDto
@@ -70,5 +82,11 @@ namespace Application.DTOs
         [Required]
         [StringLength(100)]
         public string Category { get; set; }
+        
+        [Range(0, int.MaxValue)]
+        public int? MinQuantity { get; set; }
+
+        [Range(0, int.MaxValue)]
+        public int? MaxQuantity { get; set; }
     }
 }

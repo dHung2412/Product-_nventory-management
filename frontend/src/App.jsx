@@ -31,6 +31,7 @@ function App() {
                       <Route path="/products" element={<ProductsPage />} />
                       <Route path="/warehouses" element={<WarehousesPage />} />
                       <Route path="/stock" element={<StockPage />} />
+                      <Route path="/warehouses/:id/stock" element={<StockPage />} />
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>

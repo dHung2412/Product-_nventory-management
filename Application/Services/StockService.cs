@@ -43,8 +43,12 @@ namespace Application.Services
         public async Task<IEnumerable<StockItemDto>> GetAllStockItemsAsync()
         {
             var stockItems = await _stockItemRepository.GetAllAsync();
-            var tasks = stockItems.Select(MapStockItemToDtoAsync);
-            return await Task.WhenAll(tasks);
+            var dtos = new List<StockItemDto>();
+            foreach (var si in stockItems)
+            {
+                dtos.Add(await MapStockItemToDtoAsync(si));
+            }
+            return dtos;
         }
 
         public async Task<IEnumerable<StockItemDto>> GetStockItemsByProductIdAsync(Guid productId)

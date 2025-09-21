@@ -122,7 +122,7 @@ const StockPage = () => {
     return warehouse ? warehouse.name : 'N/A';
   };
 
-  const canManageStock = user?.role === 'Admin' || user?.role === 'Manager' || user?.role === 'Employee';
+  const canManageStock = user?.roleName === 'Admin' || user?.roleName === 'Manager' || user?.roleName === 'Employee';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -147,7 +147,7 @@ const StockPage = () => {
               >
                 📤 Xuất kho
               </button>
-              {(user?.role === 'Admin' || user?.role === 'Manager') && (
+              {(user?.roleName === 'Admin' || user?.roleName === 'Manager') && (
                 <button
                   onClick={() => setShowAdjustModal(true)}
                   className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
@@ -546,7 +546,10 @@ const ImportStockModal = ({ products, warehouses, onClose, onSuccess }) => {
       await stockApi.importStock({
         ...formData,
         quantity: parseInt(formData.quantity),
-        userId: '' // Will be set by API from token
+        // userId: '' // Will be set by API from token
+        reason: formData.reason && formData.reason.trim() !== "" 
+            ? formData.reason 
+            : "Stock import"   // fallback nếu user không nhập
       });
       
       onSuccess();
@@ -718,9 +721,12 @@ const ExportStockModal = ({ products, warehouses, onClose, onSuccess }) => {
       }
       
       await stockApi.exportStock({
-        ...formData,
+        productId: formData.productId,
+        warehouseId: formData.warehouseId,
         quantity,
-        userId: '' // Will be set by API from token
+        reason: formData.notes && formData.notes.trim() !== "" 
+              ? formData.notes 
+              : "Stock export"   // fallback
       });
       
       onSuccess();
@@ -894,9 +900,12 @@ const AdjustStockModal = ({ products, warehouses, onClose, onSuccess }) => {
       setError('');
       
       await stockApi.adjustStock({
-        ...formData,
-        quantity: parseInt(formData.quantity),
-        userId: '' // Will be set by API from token
+        productId: formData.productId,
+        warehouseId: formData.warehouseId,
+        quantity: parseInt(formData.quantity, 10),
+        reason: formData.notes && formData.notes.trim() !== "" 
+                  ? formData.notes 
+                  : "Stock adjustment"
       });
       
       onSuccess();

@@ -26,13 +26,18 @@ namespace Application.Services
         public async Task<WarehouseDto?> GetByIdAsync(Guid id)
         {
             var warehouse = await _warehouseRepository.GetByIdAsync(id);
-            return warehouse == null ? null : MapToDto(warehouse);
+            return warehouse == null ? null : await MapWarehouseToDtoAsync(warehouse);
         }
 
         public async Task<IEnumerable<WarehouseDto>> GetAllAsync()
         {
             var warehouses = await _warehouseRepository.GetAllAsync();
-            return warehouses.Select(MapToDto);
+                var dtos = new List<WarehouseDto>();
+                foreach (var w in warehouses)
+                {
+                    dtos.Add(await MapWarehouseToDtoAsync(w));
+                }
+                return dtos; 
         }
 
         public async Task<WarehouseDto> CreateAsync(CreateWarehouseDto createWarehouseDto)
@@ -123,6 +128,20 @@ namespace Application.Services
                 ProductName = stockItem.Product?.Name,
                 WarehouseName = stockItem.Warehouse?.Name,
                 ProductUnit = stockItem.Product?.Unit
+            };
+        }
+
+        private async Task<WarehouseDto> MapWarehouseToDtoAsync(Warehouse warehouse)
+        {
+            var stockItems = await _stockItemRepository.GetByWarehouseIdAsync(warehouse.Id);
+            var totalStock = stockItems.Sum(si => si.Quantity);
+
+            return new WarehouseDto
+            {
+                Id = warehouse.Id,
+                Name = warehouse.Name,
+                Address = warehouse.Address,
+                TotalStock = totalStock
             };
         }
     }

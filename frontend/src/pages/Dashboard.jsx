@@ -6,6 +6,8 @@ import productApi from '../api/productApi';
 import warehouseApi from '../api/warehouseApi';
 import stockApi from '../api/stockApi';
 import userApi from '../api/userApi';
+import { ImportStockModal, ExportStockModal } from './StockPage';
+
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -13,6 +15,13 @@ const Dashboard = () => {
   const [lowStockItems, setLowStockItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+    // 👇 thêm state modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -30,7 +39,7 @@ const Dashboard = () => {
       ];
 
       // Add user statistics for Admin/Manager
-      if (user?.role === 'Admin' || user?.role === 'Manager') {
+      if (user?.roleName === 'Admin' || user?.roleName === 'Manager') {
         promises.push(userApi.getTotalUsersCount());
         promises.push(userApi.getActiveUsersCount());
       }
@@ -43,7 +52,7 @@ const Dashboard = () => {
         stock: results[2],
       };
 
-      if (user?.role === 'Admin' || user?.role === 'Manager') {
+      if (user?.roleName === 'Admin' || user?.roleName === 'Manager') {
         newStats.totalUsers = results[4];
         newStats.activeUsers = results[5];
       }
@@ -127,7 +136,7 @@ const Dashboard = () => {
         </div>
 
         {/* Admin/Manager specific stats */}
-        {(user?.role === 'Admin' || user?.role === 'Manager') && (
+        {(user?.roleName === 'Admin' || user?.roleName === 'Manager') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <StatCard
               title="Tổng người dùng"
@@ -202,7 +211,7 @@ const Dashboard = () => {
                 <span className="text-sm font-medium text-blue-800">Xuất kho</span>
               </Link>
               
-              {(user?.role === 'Admin' || user?.role === 'Manager') && (
+              {(user?.roleName === 'Admin' || user?.roleName === 'Manager') && (
                 <>
                   <Link
                     to="/products/create"

@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authApi.login(loginData);
       const { accessToken, refreshToken, user } = response;
-      
+      console.log("User from login response:", user);
       // Lưu thông tin auth
       setToken(accessToken);
       setRefreshToken(refreshToken);
@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (registerData) => {
     try {
       const response = await authApi.register(registerData);
-      const { accessToken, refreshToken, user } = response;
+      const { accessToken, refreshToken, user } = response.data;
       
       // Lưu thông tin auth
       setToken(accessToken);
